@@ -46,7 +46,7 @@ Node.js installed
 
 Git installed and configured
 
-VS Code version 0.0.1.vsix
+VS Code version 1.0.0.vsix
 📄 License
 MIT License — free to use and modify.
 2. Search `Create & Push Repo`
