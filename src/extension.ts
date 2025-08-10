@@ -382,7 +382,7 @@ function getWebviewHtml(
           commitMessage,
           remoteUrl,
           branchName,
-          newBranchName
+          newBranchName,
         });
       }
     </script>
