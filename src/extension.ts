@@ -5,163 +5,172 @@ import * as fs from "fs";
 
 // Utility to run shell commands
 function runCommand(command: string, cwd: string): Promise<string> {
-	return new Promise((resolve, reject) => {
-		exec(command, { cwd }, (error, stdout, stderr) => {
-			if (error) reject(stderr || stdout);
-			else resolve(stdout);
-		});
-	});
+  return new Promise((resolve, reject) => {
+    exec(command, { cwd }, (error, stdout, stderr) => {
+      if (error) reject(stderr || stdout);
+      else resolve(stdout);
+    });
+  });
 }
 
 // Tree View Item
 class TreeItem extends vscode.TreeItem {
-	constructor(
-		label: string,
-		collapsibleState: vscode.TreeItemCollapsibleState,
-		command?: vscode.Command
-	) {
-		super(label, collapsibleState);
-		this.command = command;
-	}
+  constructor(
+    label: string,
+    collapsibleState: vscode.TreeItemCollapsibleState,
+    command?: vscode.Command
+  ) {
+    super(label, collapsibleState);
+    this.command = command;
+  }
 }
 
 // Tree View Provider
 class GitHelperTreeProvider implements vscode.TreeDataProvider<TreeItem> {
-	getTreeItem(element: TreeItem): vscode.TreeItem {
-		return element;
-	}
+  getTreeItem(element: TreeItem): vscode.TreeItem {
+    return element;
+  }
 
-	getChildren(): Thenable<TreeItem[]> {
-		return Promise.resolve([
-			new TreeItem(
-				"🚀 Create & Push Repo ✨",
-				vscode.TreeItemCollapsibleState.None,
-				{
-					command: "gitHelper.openWebviewPanel",
-					title: "Create & Push Repo",
-				}
-			),
-		]);
-	}
+  getChildren(): Thenable<TreeItem[]> {
+    return Promise.resolve([
+      new TreeItem(
+        "🚀 Create & Push Repo ✨",
+        vscode.TreeItemCollapsibleState.None,
+        {
+          command: "gitHelper.openWebviewPanel",
+          title: "Create & Push Repo",
+        }
+      ),
+    ]);
+  }
 }
 
 // Activate Extension
 export function activate(context: vscode.ExtensionContext) {
-	const treeDataProvider = new GitHelperTreeProvider();
-	vscode.window.registerTreeDataProvider("gitHelperPanel", treeDataProvider);
+  const treeDataProvider = new GitHelperTreeProvider();
+  vscode.window.registerTreeDataProvider("gitHelperPanel", treeDataProvider);
 
-	context.subscriptions.push(
-		vscode.commands.registerCommand("gitHelper.openWebviewPanel", () => {
-			const panel = vscode.window.createWebviewPanel(
-				"gitHelperPanel",
-				"Git Commiter",
-				vscode.ViewColumn.One,
-				{ enableScripts: true }
-			);
+  context.subscriptions.push(
+    vscode.commands.registerCommand("gitHelper.openWebviewPanel", () => {
+      const panel = vscode.window.createWebviewPanel(
+        "gitHelperPanel",
+        "Git Commiter",
+        vscode.ViewColumn.One,
+        { enableScripts: true }
+      );
 
-			const remoteIcon = panel.webview.asWebviewUri(
-				vscode.Uri.joinPath(context.extensionUri, "media", "remote.svg")
-			);
-			const commitIcon = panel.webview.asWebviewUri(
-				vscode.Uri.joinPath(context.extensionUri, "media", "commit.svg")
-			);
-			const branchIcon = panel.webview.asWebviewUri(
-				vscode.Uri.joinPath(context.extensionUri, "media", "branch.svg")
-			);
+      const remoteIcon = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, "media", "remote.svg")
+      );
+      const commitIcon = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, "media", "commit.svg")
+      );
+      const commitType = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, "media", "commitType.svg")
+      );
+      const branchIcon = panel.webview.asWebviewUri(
+        vscode.Uri.joinPath(context.extensionUri, "media", "branch.svg")
+      );
 
-			panel.webview.html = getWebviewHtml(remoteIcon, commitIcon, branchIcon);
+      panel.webview.html = getWebviewHtml(
+        remoteIcon,
+        commitIcon,
+        commitType,
+        branchIcon
+      );
 
-			panel.webview.onDidReceiveMessage(async (msg) => {
-				if (msg.command === "startGitProcess") {
-					let { commitMessage, remoteUrl, branchName, newBranchName } = msg;
+      panel.webview.onDidReceiveMessage(async (msg) => {
+        if (msg.command === "startGitProcess") {
+          let { commitMessage, remoteUrl, branchName, newBranchName } = msg;
 
-					if (branchName === "new") {
-						if (!newBranchName || newBranchName.trim() === "") {
-							vscode.window.showErrorMessage(
-								"❌ Please provide a name for the new branch."
-							);
-							return;
-						}
-						branchName = newBranchName;
-					}
+          if (branchName === "new") {
+            if (!newBranchName || newBranchName.trim() === "") {
+              vscode.window.showErrorMessage(
+                "❌ Please provide a name for the new branch."
+              );
+              return;
+            }
+            branchName = newBranchName;
+          }
 
-					const workspaceFolders = vscode.workspace.workspaceFolders;
-					if (!workspaceFolders) {
-						vscode.window.showErrorMessage("❌ Open a folder first.");
-						return;
-					}
+          const workspaceFolders = vscode.workspace.workspaceFolders;
+          if (!workspaceFolders) {
+            vscode.window.showErrorMessage("❌ Open a folder first.");
+            return;
+          }
 
-					const projectPath = workspaceFolders[0].uri.fsPath;
-					const gitOutput = vscode.window.createOutputChannel("Git Helper");
-					gitOutput.clear();
-					gitOutput.show(true);
+          const projectPath = workspaceFolders[0].uri.fsPath;
+          const gitOutput = vscode.window.createOutputChannel("Git Helper");
+          gitOutput.clear();
+          gitOutput.show(true);
 
-					try {
-						const gitFolder = path.join(projectPath, ".git");
-						if (!fs.existsSync(gitFolder)) {
-							await runCommand("git init", projectPath);
-							vscode.window.showInformationMessage("✅ Git initialized.");
-							gitOutput.appendLine("Git initialized.");
-						} else {
-							gitOutput.appendLine("✅ Git already initialized.");
-						}
+          try {
+            const gitFolder = path.join(projectPath, ".git");
+            if (!fs.existsSync(gitFolder)) {
+              await runCommand("git init", projectPath);
+              vscode.window.showInformationMessage("✅ Git initialized.");
+              gitOutput.appendLine("Git initialized.");
+            } else {
+              gitOutput.appendLine("✅ Git already initialized.");
+            }
 
-						try {
-							await runCommand("git add .", projectPath);
-							gitOutput.appendLine("✅ Files staged.");
-						} catch {
-							gitOutput.appendLine("Nothing to stage.");
-						}
+            try {
+              await runCommand("git add .", projectPath);
+              gitOutput.appendLine("✅ Files staged.");
+            } catch {
+              gitOutput.appendLine("Nothing to stage.");
+            }
 
-						const status = await runCommand(
-							"git status --porcelain",
-							projectPath
-						);
-						if (status.trim().length > 0) {
-							await runCommand(`git commit -m "${commitMessage}"`, projectPath);
-							gitOutput.appendLine("✅ Files committed.");
-							vscode.window.showInformationMessage("✅ Commit created.");
-						} else {
-							gitOutput.appendLine("❌ No changes to commit.");
-							vscode.window.showWarningMessage("⚠️ Nothing to commit.");
-						}
+            const status = await runCommand(
+              "git status --porcelain",
+              projectPath
+            );
+            if (status.trim().length > 0) {
+              await runCommand(`git commit -m "${commitMessage}"`, projectPath);
+              gitOutput.appendLine("✅ Files committed.");
+              vscode.window.showInformationMessage("✅ Commit created.");
+            } else {
+              gitOutput.appendLine("❌ No changes to commit.");
+              vscode.window.showWarningMessage("⚠️ Nothing to commit.");
+            }
 
-						const remotes = await runCommand("git remote", projectPath);
-						if (!remotes.includes("origin")) {
-							await runCommand(
-								`git remote add origin ${remoteUrl}`,
-								projectPath
-							);
-							gitOutput.appendLine(`✅ Remote origin added: ${remoteUrl}`);
-							vscode.window.showInformationMessage("✅ Remote added.");
-						} else {
-							gitOutput.appendLine("☢️ Remote origin already exists.");
-						}
+            const remotes = await runCommand("git remote", projectPath);
+            if (!remotes.includes("origin")) {
+              await runCommand(
+                `git remote add origin ${remoteUrl}`,
+                projectPath
+              );
+              gitOutput.appendLine(`✅ Remote origin added: ${remoteUrl}`);
+              vscode.window.showInformationMessage("✅ Remote added.");
+            } else {
+              gitOutput.appendLine("☢️ Remote origin already exists.");
+            }
 
-						await runCommand(`git branch -M ${branchName}`, projectPath);
-						await runCommand(`git push -u origin ${branchName}`, projectPath);
-						gitOutput.appendLine(`🚀 Code pushed to ${branchName}`);
-						vscode.window.showInformationMessage("🚀 Code pushed!");
-					} catch (err: any) {
-						gitOutput.appendLine("Error: " + err);
-						vscode.window.showErrorMessage("❌ Error: " + err);
-					}
-				}
-			});
-		})
-	);
+            await runCommand(`git branch -M ${branchName}`, projectPath);
+            await runCommand(`git push -u origin ${branchName}`, projectPath);
+            gitOutput.appendLine(`🚀 Code pushed to ${branchName}`);
+            vscode.window.showInformationMessage("🚀 Code pushed!");
+          } catch (err: any) {
+            gitOutput.appendLine("Error: " + err);
+            vscode.window.showErrorMessage("❌ Error: " + err);
+          }
+        }
+      });
+    })
+  );
 }
 
 // Deactivate
-export function deactivate() { }
+export function deactivate() {}
 
 // Modern Webview HTML
 function getWebviewHtml(
-	remoteIcon: vscode.Uri,
-	commitIcon: vscode.Uri,
-	branchIcon: vscode.Uri
+  remoteIcon: vscode.Uri,
+  commitIcon: vscode.Uri,
+  commitType: vscode.Uri,
+  branchIcon: vscode.Uri
 ): string {
-	return `
+  return `
   <!DOCTYPE html>
   <html lang="en">
   <head>
@@ -206,6 +215,19 @@ function getWebviewHtml(
     flex-direction: column;
     gap: 8px;
   }
+
+  .form-group-horizontal {
+  display: flex;
+  gap: 16px;
+  width: 100%;
+}
+
+.form-half {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
 
   .label {
     display: flex;
@@ -281,37 +303,54 @@ function getWebviewHtml(
     <div class="container">
       <h2>Push Code to Git Repository</h2>
 
-      <div class="form-group">
-  <label class="label">
-    <img src="${remoteIcon}" alt="remote" />
-    Remote Repository URL <span class="label-desc">(if already added, leave blank)</span>
-  </label>
-  <input type="text" id="remoteUrl" placeholder="https://github.com/user/repo.git" />
-</div>
+    <div class="form-group">
+      <label class="label">
+        <img src="${remoteIcon}" alt="remote" />
+        Remote Repository URL <span class="label-desc">(if already added, leave blank)</span>
+      </label>
+      <input type="text" id="remoteUrl" placeholder="https://github.com/user/repo.git" />
+    </div>
 
-<div class="form-group">
-  <label class="label">
-    <img src="${commitIcon}" alt="commit" />
-    Commit Message
-  </label>
-  <input type="text" id="commitMessage" placeholder="Initial commit"/>
-</div>
+    <div class="form-group-horizontal">
+      <div class="form-half">
+        <label class="label">
+          <img src="${commitType}" alt="commit" />
+          Commit Type
+        </label>
+        <select id="commitType">
+          <option value="feat">✨  feat: A new feature</option>
+          <option value="fix">🐛  fix: A bug fix</option>
+          <option value="docs">📝  docs: Documentation changes</option>
+          <option value="style">🎨  style: Code style changes (no logic)</option>
+          <option value="refactor">🔨  refactor: Refactoring code</option>
+          <option value="test">✅  test: Adding or fixing tests</option>
+          <option value="chore">🔧  chore: Maintenance tasks</option>
+        </select>
+      </div>
 
-<div class="form-group">
-  <label class="label">
-    <img src="${branchIcon}" alt="branch" />
-    Branch
-  </label>
-  <select id="branchName" onchange="toggleNewBranch()">
-    <option value="main">main</option>
-    <option value="master">master</option>
-    <option value="new">Add/Create new branch</option>
-  </select>
-  <input type="text" id="newBranchField" placeholder="Add branch name" />
-</div>
+      <div class="form-half">
+        <label class="label">
+          <img src="${commitIcon}" alt="commit" />
+          Commit Message
+        </label>
+        <input type="text" id="commitMessage" placeholder="Add your commit message..." />
+      </div>
+    </div>
 
 
-      <button onclick="submit()">🚀 Create & Push Repo</button>
+    <div class="form-group">
+      <label class="label">
+        <img src="${branchIcon}" alt="branch" />
+        Branch
+      </label>
+      <select id="branchName" onchange="toggleNewBranch()">
+        <option value="main">main</option>
+        <option value="master">master</option>
+        <option value="new">Add/Create new branch</option>
+      </select>
+      <input type="text" id="newBranchField" placeholder="Add branch name" />
+    </div>
+    <button onclick="submit()">🚀 Create & Push Repo</button>
     </div>
 
     <script>
@@ -324,7 +363,16 @@ function getWebviewHtml(
       }
 
       function submit() {
-        const commitMessage = document.getElementById("commitMessage").value;
+        const commitType = document.getElementById("commitType").value;
+        const commitMessageText = document.getElementById("commitMessage").value;
+
+         if (!commitMessageText) {
+          alert("❌ Commit message cannot be empty.");
+          return;
+        }
+
+        const commitMessage = \`${"${commitType}"}: ${"${commitMessageText}"}\`;
+
         const remoteUrl = document.getElementById("remoteUrl").value;
         const branchName = document.getElementById("branchName").value;
         const newBranchName = document.getElementById("newBranchField").value;
