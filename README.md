@@ -1,4 +1,4 @@
-<!-- # 🚀 Git Commiter
+# 🚀 Git Commiter
 A simple VS Code extension to push your local code to Git repositories with one click.
 
 ## Features
